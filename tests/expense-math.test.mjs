@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculateExpression, settleBalances, splitAmount } from "../app/expense-math.ts";
+import { calculateExpression, newestSnapshot, settleBalances, splitAmount } from "../app/expense-math.ts";
+
+test("newest storage snapshot wins and missing sources fall back safely", () => {
+  const database = { updatedAt: 100, source: "database" };
+  const local = { updatedAt: 200, source: "local" };
+  assert.equal(newestSnapshot(database, local), local);
+  assert.equal(newestSnapshot(local, database), local);
+  assert.equal(newestSnapshot(database, null), database);
+  assert.equal(newestSnapshot(null, local), local);
+});
 
 test("calculator handles arithmetic and precedence", () => {
   assert.equal(calculateExpression("28000 ÷ 3"), 28000 / 3);

@@ -1,5 +1,11 @@
 export type SplitShare = { memberId: string; amount: number };
 
+export function newestSnapshot<T extends { updatedAt: number }>(database: T | null, local: T | null): T | null {
+  if (!database) return local;
+  if (!local) return database;
+  return local.updatedAt > database.updatedAt ? local : database;
+}
+
 const OPERATORS = new Set(["+", "-", "×", "÷"]);
 
 function precedence(operator: string) {
