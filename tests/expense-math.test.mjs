@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculateExpression, newestSnapshot, settleBalances, splitAmount } from "../app/expense-math.ts";
+import { buildMonthlySummary, calculateExpression, newestSnapshot, previousMonthKey, settleBalances, splitAmount } from "../app/expense-math.ts";
 
 test("newest storage snapshot wins and missing sources fall back safely", () => {
   const database = { updatedAt: 100, source: "database" };
@@ -60,4 +60,30 @@ test("currencies remain independently settleable and HKD reference uses saved ra
   assert.deepEqual(krw, [{ fromMemberId: "a", toMemberId: "me", amount: 10000 }]);
   assert.deepEqual(jpy, [{ fromMemberId: "me", toMemberId: "a", amount: 500 }]);
   assert.deepEqual(hkdReference, [{ fromMemberId: "a", toMemberId: "me", amount: 29 }]);
+});
+
+test("monthly summary compares months and calculates local insights", () => {
+  const summary = buildMonthlySummary("2026-08", [
+    { date: "2026-08-01", categoryId: "food", hkdAmount: 600 },
+    { date: "2026-08-02", categoryId: "travel", hkdAmount: 400 },
+  ], [
+    { date: "2026-07-03", categoryId: "food", hkdAmount: 500 },
+  ], [{ id: "food", name: "飲食" }, { id: "travel", name: "交通" }]);
+  assert.equal(summary.total, 1000);
+  assert.equal(summary.changeAmount, 500);
+  assert.equal(summary.changePercent, 100);
+  assert.equal(summary.topCategory?.name, "飲食");
+  assert.equal(summary.largestExpense?.hkdAmount, 600);
+  assert.equal(summary.averageDaily, 1000 / 31);
+  assert.equal(summary.noSpendDays, 29);
+  assert.equal(summary.tips.length, 2);
+  assert.equal(previousMonthKey("2026-01"), "2025-12");
+});
+
+test("monthly summary avoids misleading comparison without prior data", () => {
+  const summary = buildMonthlySummary("2026-02", [{ date: "2026-02-01", categoryId: "food", hkdAmount: 100 }], [], [{ id: "food", name: "飲食" }]);
+  assert.equal(summary.previousTotal, null);
+  assert.equal(summary.changeAmount, null);
+  assert.equal(summary.changePercent, null);
+  assert.equal(summary.noSpendDays, 27);
 });
