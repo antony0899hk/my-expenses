@@ -7,6 +7,8 @@
 .subcategory-list{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
 .subcategory-list span{display:flex;align-items:center;gap:5px;background:#f1f5f2;border-radius:10px;padding:7px 8px;font-size:12px}
 .subcategory-list button{border:0;background:transparent;color:#a2524c;font-size:17px;line-height:1;padding:0}
+.subcategory-editor>small{display:block;margin-top:8px;color:var(--muted);font-size:10px;line-height:1.5}
+.subcategory-empty{margin:0;border-radius:12px;background:var(--bg);padding:11px 12px;color:var(--muted);font-size:11px;line-height:1.5}
 
 .visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
 .backup-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
