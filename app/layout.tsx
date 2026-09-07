@@ -29,9 +29,29 @@ export default function RootLayout({
   return (
     <html lang="zh-HK">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={\`\${geistSans.variable} \${geistMono.variable} antialiased\`}
       >
         {children}
+        <a
+          href="/receipt"
+          aria-label="掃描單據輸入"
+          style={{
+            position: "fixed",
+            right: 16,
+            bottom: 88,
+            zIndex: 40,
+            borderRadius: 999,
+            padding: "10px 14px",
+            background: "#173f34",
+            color: "#fff",
+            textDecoration: "none",
+            fontSize: 13,
+            fontWeight: 800,
+            boxShadow: "0 8px 22px rgba(23,63,52,.22)",
+          }}
+        >
+          🧾 掃描單據
+        </a>
       </body>
     </html>
   );
