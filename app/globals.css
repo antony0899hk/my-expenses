@@ -150,6 +150,12 @@ button,input,select,textarea{font:inherit}
 .category-chips button{position:relative;border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:9px 12px;color:#536159;font-size:13px}
 .category-chips .selected{background:var(--mint);border-color:#98cfb2;color:var(--green-dark);font-weight:700}
 .category-chips i{font-style:normal;font-size:8px;color:var(--green);margin-right:3px}
+.category-picker.collapsed{padding:10px 14px}
+.selected-category-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.selected-category-row>span{font-size:13px;font-weight:700}
+.selected-category-row>button{display:flex;align-items:center;gap:8px;border:1px solid #98cfb2;background:var(--mint);border-radius:12px;padding:8px 11px;color:var(--green-dark)}
+.selected-category-row>button strong{font-size:14px}
+.selected-category-row>button small{font-size:10px;color:var(--green)}
 .form-block textarea{width:100%;height:58px;resize:none;border:0;background:var(--bg);border-radius:10px;padding:10px;outline:0}
 .delete-button{width:100%;border:0;background:#fff0ef;color:#bd443d;border-radius:14px;padding:13px;margin-top:8px;font-weight:700}
 .mini-sheet label{display:block;font-size:12px;font-weight:700}
