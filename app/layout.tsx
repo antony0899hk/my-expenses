@@ -33,6 +33,27 @@ export default function RootLayout({
       >
         {children}
         <a
+          href="/feedback?app=My%20Expenses"
+          aria-label="回報問題或提出建議"
+          style={{
+            position: "fixed",
+            left: 16,
+            bottom: 88,
+            zIndex: 40,
+            borderRadius: 999,
+            padding: "10px 14px",
+            background: "#ffffff",
+            color: "#173f34",
+            border: "1px solid #d6e0db",
+            textDecoration: "none",
+            fontSize: 13,
+            fontWeight: 800,
+            boxShadow: "0 8px 22px rgba(23,63,52,.12)",
+          }}
+        >
+          💬 回報／建議
+        </a>
+        <a
           href="/receipt"
           aria-label="掃描單據輸入"
           style={{
