@@ -58,6 +58,7 @@ button,input,select,textarea{font:inherit}
 .topbar{display:flex;align-items:center;justify-content:space-between;padding:calc(18px + env(safe-area-inset-top)) 20px 14px}
 .topbar h1{font-size:27px;margin:3px 0 0;letter-spacing:-.8px}
 .eyebrow{font-size:10px;font-weight:800;letter-spacing:1.6px;color:var(--green);margin:0}
+.eyebrow span{margin-left:6px;color:var(--muted);font-weight:700;letter-spacing:.4px}
 .avatar{width:42px;height:42px;border-radius:50%;background:var(--mint);color:var(--green);display:grid;place-items:center;font-weight:800}
 .content{padding:0 16px}
 .month-switch{height:44px;display:flex;align-items:center;justify-content:center;gap:22px;color:#435048}
