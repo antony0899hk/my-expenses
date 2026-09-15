@@ -1,175 +1,37 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- Receipt previews use device-local Blob URLs. */
 
-import { ChangeEvent, useMemo, useState } from "react";
+import Link from "next/link";
+import { ChangeEvent, useEffect, useState } from "react";
 
-type ReceiptItem = {
-  id: string;
-  original: string;
-  translated: string;
-  category: string;
-  amount: number;
-};
+type Currency="HKD"|"CNY"|"TWD"|"JPY"|"KRW"|"THB"|"USD";
+type Category={id:string;name:string};
+type Item={id:string;name:string;quantity:string;size:string;unit:"ml"|"L"|"g"|"kg"|"件";category:string};
+type Data={updatedAt?:number;expenses?:unknown[];categories?:Category[];rates?:Partial<Record<Currency,number>>;[key:string]:unknown};
+const SNAPSHOT="antony-app-data-v5",PURCHASES="antony-purchase-items-v1",DB="antony-expenses-db",STORE="app-data",KEY="current";
+const defaults:Category[]=["交通費","早餐","午餐","晚餐","買餸","日常消費","睇戲","電話費","上網費","其他"].map((name,index)=>({id:"cat-"+(index+1),name}));
+const currencies:Currency[]=["HKD","CNY","TWD","JPY","KRW","THB","USD"];
+const id=()=>Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,9);
+const today=()=>new Date().toLocaleDateString("en-CA");
+function dataFromStorage():Data{try{const raw=localStorage.getItem(SNAPSHOT);if(raw)return JSON.parse(raw) as Data}catch{}return{updatedAt:0,expenses:[],categories:defaults,rates:{HKD:1}}}
+function writeSnapshot(data:Data){localStorage.setItem(SNAPSHOT,JSON.stringify(data));localStorage.setItem("antony-expenses",JSON.stringify(data.expenses||[]));localStorage.setItem("antony-categories",JSON.stringify(data.categories||defaults));localStorage.setItem("antony-rates",JSON.stringify(data.rates||{HKD:1}))}
+function readDatabase(){return new Promise<Data|null>((resolve,reject)=>{const open=indexedDB.open(DB,1);open.onerror=()=>reject(open.error);open.onsuccess=()=>{const database=open.result;if(!database.objectStoreNames.contains(STORE)){database.close();resolve(null);return}const tx=database.transaction(STORE,"readonly"),request=tx.objectStore(STORE).get(KEY);request.onsuccess=()=>resolve((request.result||null) as Data|null);request.onerror=()=>reject(request.error);tx.oncomplete=()=>database.close()}})}
+function writeDatabase(data:Data){return new Promise<void>((resolve,reject)=>{const open=indexedDB.open(DB,1);open.onupgradeneeded=()=>{if(!open.result.objectStoreNames.contains(STORE))open.result.createObjectStore(STORE)};open.onerror=()=>reject(open.error);open.onsuccess=()=>{const database=open.result,tx=database.transaction(STORE,"readwrite");tx.objectStore(STORE).put(data,KEY);tx.oncomplete=()=>{database.close();resolve()};tx.onerror=()=>{database.close();reject(tx.error)}}})}
+function suggestedCategory(name:string){const value=name.toLowerCase();return ["奶","milk","蛋","egg","米","菜","肉","魚","bread","水果","fruit","咖啡","coffee","茶","tea","水","water"].some(word=>value.includes(word))?"買餸":["洗頭","牙膏","紙巾","清潔","shampoo","tissue"].some(word=>value.includes(word))?"日常消費":""}
 
-const demoItems: ReceiptItem[] = [
-  { id: "1", original: "น้ำมะพร้าว", translated: "椰子水", category: "飲品", amount: 45 },
-  { id: "2", original: "ยาสีฟัน", translated: "牙膏", category: "日常消費", amount: 159 },
-  { id: "3", original: "มะม่วงอบแห้ง", translated: "芒果乾", category: "小食 / 手信", amount: 189 },
-  { id: "4", original: "กาแฟ", translated: "咖啡豆", category: "咖啡 / 手信", amount: 615 },
-];
-
-const categories = ["飲品", "早餐", "午餐", "晚餐", "交通費", "日常消費", "小食 / 手信", "咖啡 / 手信", "其他"];
-
-export default function ReceiptBetaPage() {
-  const [items, setItems] = useState<ReceiptItem[]>([]);
-  const [showTranslation, setShowTranslation] = useState(true);
-  const [fileName, setFileName] = useState("");
-  const [status, setStatus] = useState("尚未掃描");
-  const [saved, setSaved] = useState(false);
-
-  const total = useMemo(() => items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0), [items]);
-
-  function loadDemo(name = "Thailand-receipt-demo.jpg") {
-    setFileName(name);
-    setStatus("已偵測泰文 · Demo 辨識完成");
-    setItems(demoItems.map((item) => ({ ...item })));
-    setSaved(false);
-  }
-
-  function onFile(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    loadDemo(file.name);
-  }
-
-  function updateItem(id: string, patch: Partial<ReceiptItem>) {
-    setItems((current) => current.map((item) => (item.id === id ? { ...item, ...patch } : item)));
-    setSaved(false);
-  }
-
-  return (
-    <main style={styles.page}>
-      <section style={styles.shell}>
-        <div style={styles.topbar}>
-          <a href="/" style={styles.back}>‹ My Expenses</a>
-          <span style={styles.beta}>RECEIPT AI · BETA</span>
-        </div>
-
-        <header style={styles.header}>
-          <p style={styles.eyebrow}>MY EXPENSES LAB</p>
-          <h1 style={styles.title}>掃描收據</h1>
-          <p style={styles.lead}>先測試流程：影相 / 上載 → 原文辨識 → 中文翻譯 → 自動分類 → 逐項確認。今版未接真正 OCR 或 AI API，所以唔會產生額外費用。</p>
-        </header>
-
-        <article style={styles.card}>
-          <div style={styles.cardTitleRow}>
-            <div>
-              <h2 style={styles.h2}>1. 加入收據</h2>
-              <p style={styles.muted}>iPhone 可以直接用相機；桌面版可揀相片。</p>
-            </div>
-            <span style={styles.status}>{status}</span>
-          </div>
-          <label style={styles.upload}>
-            <span style={{ fontSize: 30 }}>🧾</span>
-            <strong>影相 / 選擇收據</strong>
-            <small style={styles.muted}>JPG、PNG、HEIC · Beta 版會用示範資料模擬辨識</small>
-            <input type="file" accept="image/*" capture="environment" onChange={onFile} style={{ display: "none" }} />
-          </label>
-          <button type="button" onClick={() => loadDemo()} style={styles.secondaryButton}>直接試泰國收據 Demo</button>
-          {fileName && <p style={styles.fileName}>目前檔案：{fileName}</p>}
-        </article>
-
-        {items.length > 0 && (
-          <>
-            <article style={styles.card}>
-              <div style={styles.cardTitleRow}>
-                <div>
-                  <h2 style={styles.h2}>2. 翻譯與逐項確認</h2>
-                  <p style={styles.muted}>原文保留；翻譯只係幫你睇明張單，正式入帳前仍可逐項改。</p>
-                </div>
-                <label style={styles.toggleLabel}>
-                  <input type="checkbox" checked={showTranslation} onChange={(event) => setShowTranslation(event.target.checked)} /> 中文翻譯
-                </label>
-              </div>
-
-              <div style={styles.list}>
-                {items.map((item) => (
-                  <div key={item.id} style={styles.itemCard}>
-                    <div style={styles.itemHead}>
-                      <div>
-                        <strong style={styles.original}>{item.original}</strong>
-                        {showTranslation && <div style={styles.translation}>{item.translated}</div>}
-                      </div>
-                      <button type="button" onClick={() => setItems((current) => current.filter((row) => row.id !== item.id))} style={styles.remove}>刪除</button>
-                    </div>
-                    <div style={styles.grid}>
-                      <label style={styles.label}>中文名稱
-                        <input value={item.translated} onChange={(event) => updateItem(item.id, { translated: event.target.value })} style={styles.input} />
-                      </label>
-                      <label style={styles.label}>分類
-                        <select value={item.category} onChange={(event) => updateItem(item.id, { category: event.target.value })} style={styles.input}>
-                          {categories.map((category) => <option key={category}>{category}</option>)}
-                        </select>
-                      </label>
-                      <label style={styles.label}>金額（THB）
-                        <input inputMode="decimal" type="number" min="0" step="any" value={item.amount} onChange={(event) => updateItem(item.id, { amount: Number(event.target.value) })} style={styles.input} />
-                      </label>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </article>
-
-            <article style={styles.card}>
-              <h2 style={styles.h2}>3. 入帳前總檢查</h2>
-              <div style={styles.summaryRow}><span>辨識項目</span><strong>{items.length} 項</strong></div>
-              <div style={styles.summaryRow}><span>原幣</span><strong>THB</strong></div>
-              <div style={styles.summaryRow}><span>收據總額</span><strong style={{ fontSize: 24 }}>{total.toLocaleString("en-HK")} THB</strong></div>
-              <div style={styles.notice}>正式版會喺呢一步再比你揀「逐項入帳」或者「只記總額」，並沿用 My Expenses 現有旅程、匯率、分類及分帳設定。</div>
-              <button type="button" onClick={() => setSaved(true)} style={styles.primaryButton}>{saved ? "✓ Demo 已確認" : "確認並準備入帳"}</button>
-              {saved && <p style={styles.success}>Beta 版暫時唔會寫入正式資料庫，避免測試資料混入你現有支出。</p>}
-            </article>
-          </>
-        )}
-
-        <article style={styles.card}>
-          <h2 style={styles.h2}>之後正式接駁</h2>
-          <p style={styles.muted}>下一階段先接真正 OCR + 翻譯，再將確認後項目送入現有 Expense save flow。咁平時開 App 唔會載入 OCR 模型，速度唔會因為呢個功能明顯變慢。</p>
-        </article>
-      </section>
-    </main>
-  );
+export default function ReceiptPage(){
+ const[app,setApp]=useState<Data|null>(null),[preview,setPreview]=useState(""),[fileName,setFileName]=useState(""),[merchant,setMerchant]=useState(""),[date,setDate]=useState(today()),[currency,setCurrency]=useState<Currency>("HKD"),[amount,setAmount]=useState(""),[category,setCategory]=useState("買餸"),[items,setItems]=useState<Item[]>([]),[message,setMessage]=useState("未加入購物憑證"),[saving,setSaving]=useState(false);
+ const categories=app?.categories?.length?app.categories:defaults,number=Number(amount)||0,rate=currency==="HKD"?1:Number(app?.rates?.[currency])||1;
+ useEffect(()=>{let active=true;const timer=window.setTimeout(()=>{void readDatabase().catch(()=>null).then(database=>{const local=dataFromStorage(),loaded=database&&(Number(database.updatedAt)||0)>=(Number(local.updatedAt)||0)?database:local;if(active){setApp(loaded);setCategory(loaded.categories?.find(item=>item.name==="買餸")?.name||loaded.categories?.[0]?.name||"其他")}})},0);return()=>{active=false;window.clearTimeout(timer)}},[]);
+ useEffect(()=>()=>{if(preview)URL.revokeObjectURL(preview)},[preview]);
+ function chooseFile(event:ChangeEvent<HTMLInputElement>){const file=event.target.files?.[0];if(!file)return;if(preview)URL.revokeObjectURL(preview);setPreview(URL.createObjectURL(file));setFileName(file.name||"相片");setMessage("相片只在此頁預覽；確認後才會記帳")}
+ function addItem(){setItems(current=>[...current,{id:id(),name:"",quantity:"1",size:"",unit:"件",category}])}
+ function changeItem(itemId:string,patch:Partial<Item>){setItems(current=>current.map(item=>item.id===itemId?{...item,...patch}:item))}
+ async function save(){if(!app||number<=0){setMessage("請先輸入整張單總額");return}const selected=categories.find(item=>item.name===category)||categories[0];if(!selected){setMessage("找不到支出分類");return}setSaving(true);const now=Date.now(),expenseId=id(),note=[merchant?"購物："+merchant:"購物憑證",fileName?"來源："+fileName:""].filter(Boolean).join(" · "),expense={id:expenseId,amount:number,currency,hkdAmount:number*rate,rate,categoryId:selected.id,date,note,createdAt:now,expenseType:"daily"},next={...app,updatedAt:Math.max(now,(Number(app.updatedAt)||0)+1),expenses:[expense,...(app.expenses||[])],categories,rates:{HKD:1,...app.rates}};try{writeSnapshot(next);await writeDatabase(next).catch(()=>undefined);const stock=items.filter(item=>item.name.trim()).map(item=>({id:id(),name:item.name.trim(),quantity:Math.max(1,Number(item.quantity)||1),size:Number(item.size)||null,unit:item.unit,category:item.category,purchasedAt:date,merchant:merchant||undefined,expenseId})),prior=JSON.parse(localStorage.getItem(PURCHASES)||"[]") as unknown[];localStorage.setItem(PURCHASES,JSON.stringify([...stock,...prior]));setApp(next);setMessage(stock.length?"已入帳，並保存 "+stock.length+" 項存貨資料":"已將整張單入帳");setSaving(false)}catch{setSaving(false);setMessage("暫時未能保存，請勿離開並再試")}}
+ return <main style={s.page}><section style={s.shell}><div style={s.top}><Link href="/" style={s.back}>‹ My Expenses</Link><b style={s.badge}>SHOPPING INPUT · BETA</b></div><h1 style={s.title}>智能購物入帳</h1><p style={s.lead}>影紙單、揀付款截圖或淘寶訂單。相片只會在這一頁預覽，唔會保存到支出資料。</p>
+ <article style={s.card}><h2 style={s.h2}>1. 加入購物憑證</h2><p style={s.muted}>紙單、付款成功畫面、淘寶訂單截圖都可以。</p><div style={s.choices}><label style={s.upload}>📷<strong>即刻影相</strong><input aria-label="即刻影相" type="file" accept="image/*" capture="environment" onChange={chooseFile} style={s.hidden}/></label><label style={s.upload}>▣<strong>揀截圖／相片</strong><input aria-label="揀截圖或相片" type="file" accept="image/*" onChange={chooseFile} style={s.hidden}/></label></div>{preview&&<figure style={s.figure}><img src={preview} alt="購物憑證預覽" style={s.image}/><figcaption>{fileName}</figcaption></figure>}</article>
+ <article style={s.card}><h2 style={s.h2}>2. 整張單入帳</h2><div style={s.grid}><label style={s.label}>店舖／平台（選填）<input value={merchant} onChange={event=>setMerchant(event.target.value)} placeholder="例如：惠康、淘寶" style={s.input}/></label><label style={s.label}>日期<input type="date" value={date} onChange={event=>setDate(event.target.value)} style={s.input}/></label><label style={s.label}>貨幣<select value={currency} onChange={event=>setCurrency(event.target.value as Currency)} style={s.input}>{currencies.map(item=><option key={item}>{item}</option>)}</select></label><label style={s.label}>總額<input inputMode="decimal" type="number" min="0" value={amount} onChange={event=>setAmount(event.target.value)} placeholder="0" style={s.input}/></label><label style={s.label}>支出分類<select value={category} onChange={event=>setCategory(event.target.value)} style={s.input}>{categories.map(item=><option key={item.id}>{item.name}</option>)}</select></label></div>{currency!=="HKD"&&<p style={s.muted}>沿用已保存匯率：1 {currency} ≈ HK {rate.toFixed(4)}</p>}</article>
+ <article style={s.card}><div style={s.row}><div><h2 style={s.h2}>3. 存貨資料（選填）</h2><p style={s.muted}>只保存商品、規格、數量及日期，日後畀 Price Radar 用；唔會另建第二筆支出。</p></div><button type="button" onClick={addItem} style={s.add}>＋ 加入商品</button></div>{items.length===0?<p style={s.empty}>例如：鮮奶 236 ml × 3盒，再加 1 L × 1盒。</p>:items.map(item=><div key={item.id} style={s.item}><button type="button" onClick={()=>setItems(current=>current.filter(row=>row.id!==item.id))} style={s.remove}>刪除</button><div style={s.grid}><label style={s.label}>商品<input value={item.name} onBlur={event=>{const guess=suggestedCategory(event.target.value);if(guess)changeItem(item.id,{category:guess})}} onChange={event=>changeItem(item.id,{name:event.target.value})} placeholder="例如：鮮奶" style={s.input}/></label><label style={s.label}>數量<input type="number" min="1" value={item.quantity} onChange={event=>changeItem(item.id,{quantity:event.target.value})} style={s.input}/></label><label style={s.label}>每件規格<input type="number" min="0" value={item.size} onChange={event=>changeItem(item.id,{size:event.target.value})} placeholder="236" style={s.input}/></label><label style={s.label}>單位<select value={item.unit} onChange={event=>changeItem(item.id,{unit:event.target.value as Item["unit"]})} style={s.input}>{["ml","L","g","kg","件"].map(unit=><option key={unit}>{unit}</option>)}</select></label><label style={s.label}>分類<select value={item.category} onChange={event=>changeItem(item.id,{category:event.target.value})} style={s.input}>{categories.map(option=><option key={option.id}>{option.name}</option>)}</select></label></div></div>)}</article>
+ <article style={s.card}><div style={s.row}><span>正式支出</span><strong>{number?currency+" "+number.toLocaleString("en-HK"):"尚未填寫"}</strong></div><button type="button" disabled={saving||!number} onClick={()=>void save()} style={s.save}>{saving?"正在保存…":"確認並加入 My Expenses"}</button><p style={s.status}>{message}</p></article><article style={s.info}><strong>下一步：自動辨認</strong><p>現時未有 OCR／AI 服務金鑰，所以相片不會假裝被辨認；接駁後才會自動讀取店舖、貨品、容量、數量及分類。</p></article></section></main>
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  page: { minHeight: "100vh", background: "#f4f4f2", color: "#151515", padding: "18px 14px 70px", fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans TC',sans-serif" },
-  shell: { maxWidth: 720, margin: "0 auto" },
-  topbar: { display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", marginBottom: 18 },
-  back: { color: "#151515", textDecoration: "none", fontWeight: 700 },
-  beta: { fontSize: 11, fontWeight: 800, letterSpacing: ".08em", padding: "6px 9px", border: "1px solid #d8d8d2", borderRadius: 999, background: "white" },
-  header: { marginBottom: 18 },
-  eyebrow: { margin: 0, fontSize: 11, fontWeight: 800, letterSpacing: ".12em", color: "#747474" },
-  title: { margin: "4px 0 8px", fontSize: 34, lineHeight: 1.05 },
-  lead: { margin: 0, color: "#666", lineHeight: 1.55, fontSize: 14 },
-  card: { background: "white", border: "1px solid #deded8", borderRadius: 20, padding: 16, margin: "12px 0", boxShadow: "0 4px 18px rgba(0,0,0,.03)" },
-  cardTitleRow: { display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" },
-  h2: { fontSize: 18, margin: "0 0 5px" },
-  muted: { color: "#777", fontSize: 12, lineHeight: 1.45, margin: 0 },
-  status: { fontSize: 11, borderRadius: 999, padding: "6px 8px", background: "#efefe9", whiteSpace: "nowrap" },
-  upload: { display: "flex", flexDirection: "column", alignItems: "center", gap: 6, border: "1.5px dashed #bdbdb4", borderRadius: 16, padding: "24px 14px", margin: "14px 0 10px", cursor: "pointer", background: "#fafaf8", textAlign: "center" },
-  secondaryButton: { width: "100%", border: 0, borderRadius: 13, padding: "11px 12px", background: "#ecece8", color: "#111", fontWeight: 750, cursor: "pointer" },
-  fileName: { margin: "10px 0 0", fontSize: 12, color: "#666" },
-  toggleLabel: { fontSize: 12, whiteSpace: "nowrap", display: "flex", gap: 6, alignItems: "center" },
-  list: { display: "grid", gap: 10, marginTop: 14 },
-  itemCard: { border: "1px solid #e3e3dc", borderRadius: 15, padding: 12, background: "#fcfcfa" },
-  itemHead: { display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" },
-  original: { fontSize: 16 },
-  translation: { fontSize: 13, color: "#666", marginTop: 2 },
-  remove: { border: 0, background: "transparent", color: "#9b3f3f", fontWeight: 700, cursor: "pointer" },
-  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 9, marginTop: 11 },
-  label: { fontSize: 11, fontWeight: 700, color: "#666", display: "grid", gap: 5 },
-  input: { width: "100%", border: "1px solid #d8d8d2", borderRadius: 11, padding: "9px 10px", background: "white", color: "#111", fontSize: 14 },
-  summaryRow: { display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", padding: "9px 0", borderBottom: "1px solid #eee" },
-  notice: { marginTop: 12, padding: "11px 12px", background: "#fff3d8", borderRadius: 12, fontSize: 12, lineHeight: 1.5 },
-  primaryButton: { width: "100%", border: 0, borderRadius: 14, padding: "13px 14px", marginTop: 12, background: "#111", color: "white", fontWeight: 800, cursor: "pointer" },
-  success: { margin: "10px 0 0", padding: "10px 12px", borderRadius: 12, background: "#e8f5ea", color: "#2e6741", fontSize: 12, lineHeight: 1.45 },
-};
+const s:Record<string,React.CSSProperties>={page:{minHeight:"100vh",background:"#f4f4f2",color:"#151515",padding:"18px 14px 70px",fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans TC',sans-serif"},shell:{maxWidth:720,margin:"0 auto"},top:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18},back:{color:"#151515",textDecoration:"none",fontWeight:700},badge:{fontSize:10,letterSpacing:".08em",padding:"6px 9px",border:"1px solid #d8d8d2",borderRadius:999,background:"white"},title:{fontSize:34,lineHeight:1.05,margin:"0 0 8px"},lead:{margin:0,color:"#666",lineHeight:1.55,fontSize:14},card:{background:"white",border:"1px solid #deded8",borderRadius:20,padding:16,margin:"12px 0"},h2:{fontSize:18,margin:"0 0 5px"},muted:{color:"#777",fontSize:12,lineHeight:1.45,margin:"5px 0 0"},choices:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:14},upload:{display:"grid",placeItems:"center",gap:6,border:"1.5px dashed #bdbdb4",borderRadius:16,padding:"18px 10px",background:"#fafaf8",cursor:"pointer",fontSize:13},hidden:{display:"none"},figure:{margin:"14px 0 0",fontSize:12,color:"#666"},image:{width:"100%",maxHeight:300,objectFit:"contain",borderRadius:14,border:"1px solid #e3e3dc",background:"#f8f8f5"},grid:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(135px,1fr))",gap:9,marginTop:11},label:{fontSize:11,fontWeight:700,color:"#666",display:"grid",gap:5},input:{width:"100%",border:"1px solid #d8d8d2",borderRadius:11,padding:"9px 10px",background:"white",color:"#111",fontSize:14},row:{display:"flex",justifyContent:"space-between",gap:12,alignItems:"flex-start"},add:{border:0,borderRadius:11,padding:"9px 10px",background:"#173f34",color:"white",fontWeight:750,whiteSpace:"nowrap"},empty:{margin:"14px 0 0",padding:"11px 12px",borderRadius:12,background:"#f5f6f2",fontSize:12,lineHeight:1.5,color:"#666"},item:{position:"relative",border:"1px solid #e3e3dc",borderRadius:15,padding:12,marginTop:12,background:"#fcfcfa"},remove:{position:"absolute",right:8,top:8,border:0,background:"transparent",color:"#9b3f3f",fontWeight:700,fontSize:12},save:{width:"100%",border:0,borderRadius:14,padding:"13px 14px",marginTop:14,background:"#173f34",color:"white",fontWeight:800},status:{margin:"10px 0 0",fontSize:12,lineHeight:1.45,color:"#476257"},info:{margin:"16px 0",padding:"13px 14px",borderRadius:16,background:"#e8f2eb",fontSize:12,lineHeight:1.5,color:"#355447"}};
