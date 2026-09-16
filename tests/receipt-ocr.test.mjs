@@ -12,13 +12,13 @@ test("extracts a labelled receipt total, merchant and stock details", () => {
   assert.deepEqual(parsed.items[0], { name: "鮮奶 236 ml x 3", quantity: "3", size: "236", unit: "ml" });
 });
 
-test("uses the largest plausible amount when a screenshot has no total label", () => {
+test("does not guess a total from unlabelled numbers", () => {
   const parsed = parseReceiptText(`淘寶
 訂單付款成功
 商品 A ¥18.00
 ¥36.00`);
   assert.equal(parsed.merchant, "淘寶");
-  assert.equal(parsed.amount, "36");
+  assert.equal(parsed.amount, "");
   assert.equal(parsed.items.length, 1);
 });
 

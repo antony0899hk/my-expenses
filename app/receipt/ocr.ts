@@ -42,8 +42,7 @@ export function parseReceiptText(text: string): ReceiptOcrResult {
   const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   const merchant = lines.slice(0, 8).find((line) => /[A-Za-z\u3400-\u9fff]{2,}/.test(line) && !TOTAL_WORDS.test(line) && !/^receipt$/i.test(line)) || "";
   const totalLine = [...lines].reverse().find((line) => TOTAL_WORDS.test(line) && moneyFromLine(line));
-  const fallbackValues = lines.map(moneyFromLine).filter((value): value is number => typeof value === "number" && value < 1_000_000);
-  const amount = totalLine ? moneyFromLine(totalLine) : fallbackValues.length ? Math.max(...fallbackValues) : undefined;
+  const amount = totalLine ? moneyFromLine(totalLine) : undefined;
   const items = lines.flatMap((line) => {
     if (IGNORE_ITEM_WORDS.test(line) || moneyFromLine(line) === undefined) return [];
     const name = cleanName(line);
