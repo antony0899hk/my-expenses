@@ -9,7 +9,7 @@ test("extracts a labelled receipt total, merchant and stock details", () => {
 合計 HK$37.50`);
   assert.equal(parsed.merchant, "惠康");
   assert.equal(parsed.amount, "37.5");
-  assert.deepEqual(parsed.items[0], { name: "鮮奶 236 ml x 3", quantity: "3", size: "236", unit: "ml" });
+  assert.deepEqual(parsed.items[0], { name: "鮮奶", quantity: "3", size: "236", unit: "ml" });
 });
 
 test("does not guess a total from unlabelled numbers", () => {
@@ -26,13 +26,14 @@ test("recognises Chinese size and quantity units", () => {
   const parsed = parseReceiptText(`店舖
 純牛奶 1 公升 × 2盒 44.00
 總額 44.00`);
-  assert.deepEqual(parsed.items[0], { name: "純牛奶 1 公升 × 2盒", quantity: "2", size: "1", unit: "L" });
+  assert.deepEqual(parsed.items[0], { name: "純牛奶", quantity: "2", size: "1", unit: "L" });
 });
 
 test("Fusion receipt uses payment, not remaining Octopus balance or card number", () => {
   const parsed = parseReceiptText(`fusion\n清涼純淨水 3 $15.00\nBuy 3 Save $5 -$5.00\n3 小計 $10.00\nOctopus $10.00\n找續 $0.00\n卡號 66319473\n結餘 $149.30`);
   assert.equal(parsed.merchant, "Fusion");
   assert.equal(parsed.amount, "10");
+  assert.deepEqual(parsed.items[0], { name: "清涼純淨水", quantity: "3", size: "", unit: "件" });
 });
 
 test("checkout screen balance due may follow its amount", () => {

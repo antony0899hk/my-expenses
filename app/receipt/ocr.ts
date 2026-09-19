@@ -33,6 +33,9 @@ function cleanName(line: string) {
   return line
     .replace(/(?:HK\$|[$¥￥₩])?\s*[0-9]{1,6}(?:[,.][0-9]{2})?\s*$/i, "")
     .replace(/^\s*[0-9]{5,}\s+/, "")
+    .replace(/\d+(?:\.\d+)?\s*(?:ml|毫升|l|公升|g|克|kg|公斤)/gi, "")
+    .replace(/[x×]\s*\d+\s*(?:盒|件|包|枝|支|樽|瓶)?/gi, "")
+    .replace(/\s+\d{1,3}\s*$/, "")
     .replace(/[|_*]+/g, " ")
     .replace(/\s{2,}/g, " ")
     .trim();
@@ -40,10 +43,10 @@ function cleanName(line: string) {
 
 function stockDetails(line: string): Omit<OcrStockItem, "name"> {
   const size = line.match(/(\d+(?:\.\d+)?)\s*(ml|毫升|l|公升|g|克|kg|公斤)(?=\s|[x×*]|$)/i);
-  const count = line.match(/(?:[x×]\s*(\d+)|(?:數量|qty)\s*[:x×]?\s*(\d+)|(\d+)\s*(?:盒|件|包|枝|支|樽|瓶))/i);
+  const count = line.match(/(?:[x×]\s*(\d+)|(?:數量|qty)\s*[:x×]?\s*(\d+)|(\d+)\s*(?:盒|件|包|枝|支|樽|瓶)|\s(\d{1,3})\s+(?=(?:HK\$|[$¥￥₩])))/i);
   const rawUnit = size?.[2]?.toLowerCase();
   const unit = rawUnit === "l" || rawUnit === "公升" ? "L" : rawUnit === "kg" || rawUnit === "公斤" ? "kg" : rawUnit === "g" || rawUnit === "克" ? "g" : rawUnit ? "ml" : "件";
-  return { quantity: count?.[1] || count?.[2] || count?.[3] || "1", size: size?.[1] || "", unit };
+  return { quantity: count?.[1] || count?.[2] || count?.[3] || count?.[4] || "1", size: size?.[1] || "", unit };
 }
 
 export function parseReceiptText(text: string): ReceiptOcrResult {
