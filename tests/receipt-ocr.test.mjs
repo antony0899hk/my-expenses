@@ -52,3 +52,28 @@ test("conflicting totals remain blank", () => {
 test("thousands separators and discounts are handled", () => {
   assert.equal(parseReceiptText(`Subtotal $1,250.00\nDiscount -50.00\nTotal HK$1,200.00`).amount, "1200");
 });
+
+test("recognises Fusion screenshot text with a fuzzy Balance Due label", () => {
+  const result = parseReceiptText(`
+fusion
+13075 COOL PURIFIED WATER $5.00
+2 @ $5.00 $10.00
+Buy 3 Save $5 -$5.00
+3 3 $10.00
+Items COOL PURIFIED WATER alance Dus
+`);
+  assert.equal(result.merchant, "Fusion");
+  assert.equal(result.amount, "10");
+});
+
+test("recognises Fusion from Tai Po Mega Mall receipt header", () => {
+  const result = parseReceiptText(`
+Tai Po Mega Mall TEL:26608470
+113075 COOL PURIFIED WATER 3 $15.00
+Buy 3 Save $5 -$5.00
+Octopus $10.00
+`);
+  assert.equal(result.merchant, "Fusion");
+  assert.equal(result.amount, "10");
+  assert.equal(result.items[0]?.quantity, "3");
+});
