@@ -9,6 +9,15 @@
 .subcategory-list button{border:0;background:transparent;color:#a2524c;font-size:17px;line-height:1;padding:0}
 .subcategory-editor>small{display:block;margin-top:8px;color:var(--muted);font-size:10px;line-height:1.5}
 .subcategory-empty{margin:0;border-radius:12px;background:var(--bg);padding:11px 12px;color:var(--muted);font-size:11px;line-height:1.5}
+.category-records{margin:18px -22px 0;border-top:1px solid var(--line);background:white}
+.category-records-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px 11px}
+.category-records-head strong,.category-records-head small{display:block}
+.category-records-head strong{font-size:14px}
+.category-records-head small{margin-top:3px;color:var(--muted);font-size:10px}
+.category-records-head>b{color:var(--green-dark);font-size:14px;white-space:nowrap}
+.category-record-list{border-top:1px solid var(--line);max-height:42dvh;overflow:auto;-webkit-overflow-scrolling:touch}
+.category-record-list .expense-row{padding-left:16px;padding-right:16px}
+.category-detail-sheet .delete-button{margin-top:16px}
 
 .visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
 .backup-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
